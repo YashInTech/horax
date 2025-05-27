@@ -58,9 +58,7 @@ export const authorizeRoles = (...roles: string[]) => {
         `Access denied for user: ${req.user._id} with role: ${req.user.role}`
       );
       return res.status(403).json({
-        message: `Access denied. Requires one of the following roles: ${roles.join(
-          ', '
-        )}`,
+        message: 'You do not have permission to perform this action',
       });
     }
   };

@@ -1,38 +1,22 @@
-import express from "express";
-import {
-	createOrder,
-	getOrdersByUserId,
-	getOrderById,
-	getAllOrders,
-	updateOrderStatus,
-} from "../controllers/orderController";
-import { protect } from "../middleware/auth";
-import {
-	createCashfreeOrder,
-	verifyCashfreeOrder,
-} from "../controllers/cashfreeController";
+import express from 'express';
+import * as orderController from '../controllers/orderController';
+import { protect, authorizeRoles } from '../middleware/auth';
 
 const router = express.Router();
 
-// Create a new order (protected route)
-router.post("/", protect, createOrder);
+// User routes
+router.post('/', protect, orderController.createOrder);
+router.get('/user/:userId', protect, orderController.getOrdersByUserId);
+router.get('/details/:orderId', protect, orderController.getOrderById);
 
-// Get all orders (admin only - should come BEFORE the /:userId route)
-router.get("/all", protect, getAllOrders);
+// Admin routes
+router.get('/', protect, authorizeRoles('admin'), orderController.getAllOrders);
 
-// Get order details by order ID (protected route)
-router.get("/details/:orderId", protect, getOrderById);
-
-// Update order status (admin only)
-router.put("/:orderId/status", protect, updateOrderStatus);
-
-// Get orders for a specific user by user ID (protected route)
-router.get("/:userId", protect, getOrdersByUserId);
-
-// Create a Cashfree order (protected route)
-router.post("/checkout", protect, createCashfreeOrder);
-
-// Verify payment and update order status
-router.get("/status/:orderId", verifyCashfreeOrder);
+router.put(
+  '/:orderId/status',
+  protect,
+  authorizeRoles('admin'),
+  orderController.updateOrderStatus
+);
 
 export default router;

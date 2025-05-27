@@ -1,61 +1,25 @@
 import express from 'express';
-import multer from 'multer';
-import {
-  addProduct,
-  getProductFields,
-  getAllProducts,
-  getProductById,
-  updateProduct,
-  deleteProduct,
-  getFeaturedProducts,
-  getBestsellerProducts,
-} from '../controllers/productController';
+import * as productController from '../controllers/productController';
 import { protect, authorizeRoles } from '../middleware/auth';
-import { validateProduct } from '../middleware/validate';
+import multer from 'multer';
 
 const router = express.Router();
-
-// Multer configuration with improved security
-const storage = multer.memoryStorage();
-const fileFilter = (
-  req: Express.Request,
-  file: Express.Multer.File,
-  cb: multer.FileFilterCallback
-) => {
-  // Accept only specified image types
-  if (
-    file.mimetype === 'image/jpeg' ||
-    file.mimetype === 'image/png' ||
-    file.mimetype === 'image/webp'
-  ) {
-    cb(null, true);
-  } else {
-    cb(null, false);
-    return cb(new Error('Only JPEG, PNG, and WEBP formats allowed'));
-  }
-};
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter,
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Public routes
-router.get('/fields', getProductFields);
-router.get('/', getAllProducts);
-router.get('/featured', getFeaturedProducts);
-router.get('/bestsellers', getBestsellerProducts);
-router.get('/:id', getProductById);
+router.get('/', productController.getProducts);
+router.get('/:id', productController.getProductById);
+router.get('/category/:category', productController.getProductsByCategory);
+router.get('/featured/products', productController.getFeaturedProducts);
+router.get('/bestseller/products', productController.getBestsellerProducts);
 
-// Admin-only routes with validation
+// Admin routes - secured with protect middleware and admin role
 router.post(
   '/add',
   protect,
   authorizeRoles('admin'),
   upload.array('images', 5),
-  validateProduct,
-  addProduct
+  productController.addProduct
 );
 
 router.put(
@@ -63,10 +27,14 @@ router.put(
   protect,
   authorizeRoles('admin'),
   upload.array('images', 5),
-  validateProduct,
-  updateProduct
+  productController.updateProduct
 );
 
-router.delete('/:id', protect, authorizeRoles('admin'), deleteProduct);
+router.delete(
+  '/:id',
+  protect,
+  authorizeRoles('admin'),
+  productController.deleteProduct
+);
 
 export default router;
