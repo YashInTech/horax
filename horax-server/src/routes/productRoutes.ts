@@ -7,9 +7,8 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Public routes
-router.get('/', productController.getProducts);
+router.get('/', productController.getAllProducts); // Changed from getProducts to getAllProducts
 router.get('/:id', productController.getProductById);
-router.get('/category/:category', productController.getProductsByCategory);
 router.get('/featured/products', productController.getFeaturedProducts);
 router.get('/bestseller/products', productController.getBestsellerProducts);
 

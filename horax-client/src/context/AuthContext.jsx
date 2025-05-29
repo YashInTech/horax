@@ -65,22 +65,29 @@ export const AuthProvider = ({ children }) => {
 
   const googleLogin = async (token) => {
     try {
+      console.log('Sending token to backend');
+
       const res = await axios.post(`${API_URL}/auth/google/callback`, {
         token,
       });
 
+      console.log('Received response from backend:', res.data);
+
       if (res.data.success) {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
-
+        
         const user = new User(res.data.user);
         setCurrentUser(user);
         setIsAdmin(user.isAdmin());
-
+        
         return { success: true };
       }
+      return { success: false };
     } catch (err) {
-      throw new Error(err.response?.data?.message || 'Google login failed');
+      console.error('Google login error:', err);
+      const errorMessage = err.response?.data?.message || 'Google login failed';
+      throw new Error(errorMessage);
     }
   };
 

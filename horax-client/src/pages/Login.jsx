@@ -55,15 +55,30 @@ const Login = () => {
 
   const initGoogleButton = () => {
     if (window.google && document.getElementById('googleButton')) {
-      window.google.accounts.id.initialize({
-        client_id:
-          '167746703028-j46ic8mc5mqh9alpurccj4i4aq9btm09.apps.googleusercontent.com', // Replace with your actual client ID
-        callback: handleGoogleSignIn,
-      });
-      window.google.accounts.id.renderButton(
-        document.getElementById('googleButton'),
-        { theme: 'outline', size: 'large', width: '100%' }
-      );
+      try {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: handleGoogleSignIn,
+          ux_mode: 'popup', // Try using popup mode instead
+        });
+
+        window.google.accounts.id.renderButton(
+          document.getElementById('googleButton'),
+          {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'continue_with', // Try changing button text
+          }
+        );
+
+        console.log('Google Sign-In button initialized');
+      } catch (err) {
+        console.error('Error initializing Google Sign-In:', err);
+        setError('Failed to initialize Google Sign-In');
+      }
+    } else {
+      console.error('Google API not loaded or button element not found');
     }
   };
 
@@ -71,13 +86,20 @@ const Login = () => {
     try {
       setIsSubmitting(true);
       setError('');
+      console.log('Google sign-in response received', response);
       const token = response.credential;
 
+      if (!token) {
+        throw new Error('No credential received from Google');
+      }
+
+      console.log('Sending token to auth context');
       const result = await googleLogin(token);
 
       if (result.success) {
         // Check if user is admin to redirect to admin dashboard
         const user = JSON.parse(localStorage.getItem('user'));
+        console.log('User from localStorage:', user);
         if (user && user.role === 'admin') {
           navigate('/admin');
         } else {
@@ -85,6 +107,7 @@ const Login = () => {
         }
       }
     } catch (err) {
+      console.error('Google sign-in error:', err);
       setError(err.message || 'An error occurred during sign in');
     } finally {
       setIsSubmitting(false);

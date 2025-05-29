@@ -1,5 +1,3 @@
-// Simple user model for client-side use
-
 export class User {
   constructor(userData) {
     this._id = userData._id || '';
@@ -9,7 +7,6 @@ export class User {
     this.isVerified = userData.isVerified || false;
     this.profileImg = userData.profileImg || '';
     this.phone = userData.phone || '';
-    this.googleId = userData.googleId || null;
   }
 
   isAdmin() {

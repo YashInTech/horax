@@ -5,7 +5,9 @@ import User, { IUser } from '../models/User';
 import { sendEmail, generateEmailTemplate } from '../utils/sendEmail';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
+import { generateToken } from '../utils/tokenUtils';
 
+// Create Google OAuth client
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Utility to generate OTP
@@ -155,73 +157,96 @@ export const loginWithEmail = async (req: Request, res: Response) => {
 
 // Google OAuth Callback
 export const googleCallback = async (req: Request, res: Response) => {
-  const { token } = req.body;
-
   try {
+    const { token } = req.body;
+
     if (!token) {
-      return res.status(400).json({ message: 'Google token is required' });
+      return res.status(400).json({ message: 'Token is required' });
     }
 
-    // Verify Google token
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    // Debug logs
+    console.log('Received Google token for verification');
+    console.log(
+      'Environment GOOGLE_CLIENT_ID:',
+      process.env.GOOGLE_CLIENT_ID?.substring(0, 5) + '...'
+    );
 
-    const payload = ticket.getPayload();
-    if (!payload) {
-      return res.status(400).json({ message: 'Invalid Google token' });
-    }
-
-    const { email, name, sub: googleId } = payload;
-
-    if (!email) {
-      return res.status(400).json({ message: 'Email not provided by Google' });
-    }
-
-    // Check if user exists
-    let user = await User.findOne({ email });
-
-    if (!user) {
-      // Create new user from Google data
-      user = new User({
-        fullName: name || 'Google User',
-        email,
-        isVerified: true, // Google users are automatically verified
-        googleId,
+    try {
+      // Verify the token
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
       });
-      await user.save();
-    } else {
-      // Update existing user with Google ID if not set
-      if (!user.googleId) {
-        user.googleId = googleId;
-        user.isVerified = true; // Ensure user is verified
-        await user.save();
+
+      const payload = ticket.getPayload();
+      if (!payload) {
+        return res.status(400).json({ message: 'Invalid token payload' });
       }
+
+      console.log('Google token verified, payload email:', payload.email);
+
+      // Extract user information from token
+      const { email, name, picture, sub } = payload;
+
+      // Check if user exists
+      let user = await User.findOne({ email });
+
+      if (!user) {
+        // Create new user with Google info
+        user = new User({
+          email,
+          fullName: name,
+          googleId: sub,
+          isVerified: true,
+          profileImg: picture || '',
+          role: 'user', // Default role
+        });
+
+        await user.save();
+        console.log('Created new user with Google auth');
+      } else {
+        // Update existing user with Google info if needed
+        if (!user.googleId) {
+          user.googleId = sub;
+          user.isVerified = true;
+          if (picture && !user.profileImg) {
+            user.profileImg = picture;
+          }
+          await user.save();
+          console.log('Updated existing user with Google info');
+        }
+      }
+
+      // Generate JWT token
+      const authToken = generateToken(user._id);
+
+      // Remove sensitive info
+      const userData = {
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        profileImg: user.profileImg,
+        role: user.role,
+        isVerified: user.isVerified,
+      };
+
+      return res.status(200).json({
+        success: true,
+        token: authToken,
+        user: userData,
+      });
+    } catch (error) {
+      console.error('Google token verification error:', error);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Google token. Please try again.',
+      });
     }
-
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user);
-
-    // Send user data without sensitive info
-    const userData = user.toObject();
-    delete userData.password;
-    delete userData.otp;
-    delete userData.otpExpiry;
-
-    return res.status(200).json({
-      success: true,
-      message: 'Google authentication successful',
-      user: userData,
-      token: accessToken,
-      refreshToken,
-    });
   } catch (error) {
-    console.error('Google auth error:', error);
+    console.error('Server error during Google authentication:', error);
     return res.status(500).json({
       success: false,
-      message: 'Server error. Please try again later.',
-      error: error instanceof Error ? error.message : String(error),
+      message: 'Server error during authentication',
     });
   }
 };
